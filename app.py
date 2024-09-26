@@ -6,7 +6,8 @@ from firebase_admin import credentials, firestore, auth
 
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with a real secret key
+app.secret_key = 'your_secret_key'  #Auto  Replace with a real secret key
+
 
 
 # Initialize Firebase

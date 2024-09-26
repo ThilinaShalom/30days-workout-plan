@@ -1,4 +1,4 @@
-{
+/*{
   "type": "service_account",
   "project_id": "hdproject-6e51c",
   "private_key_id": "0a0e2de0be422d2759d6676b62eeeef46b26492d",
@@ -11,3 +11,4 @@
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-4e5te%40hdproject-6e51c.iam.gserviceaccount.com",
   "universe_domain": "googleapis.com"
 }
+*/

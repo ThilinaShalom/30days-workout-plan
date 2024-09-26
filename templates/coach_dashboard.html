@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coach Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <a class="navbar-brand" href="#">Coach Dashboard</a>
+      <div class="collapse navbar-collapse">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="container mt-5">
+    <h2>Welcome, Coach!</h2>
+    <p>Manage your clients and their fitness plans here.</p>
+
+    <h3 class="mt-4">Client Plans Pending Review</h3>
+    <div class="row">
+      {% for plan in plans %}
+      <div class="col-md-4">
+        <div class="card mb-4">
+          <div class="card-body">
+            <h5 class="card-title">Plan for {{ plan.user_email }}</h5>
+            <p class="card-text">Fitness Goal: {{ plan.fitness_goal }}</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#planModal{{ loop.index }}">Review Plan</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal for reviewing the plan -->
+      <div class="modal fade" id="planModal{{ loop.index }}" tabindex="-1" aria-labelledby="planModalLabel{{ loop.index }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="planModalLabel{{ loop.index }}">Plan Review for {{ plan.user_email }}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <pre>{{ plan.plan }}</pre>
+              <form method="POST" action="{{ url_for('review_plan', plan_id=plan.id) }}">
+                <div class="mb-3">
+                  <label for="coach_comment" class="form-label">Add your comments/suggestions:</label>
+                  <textarea class="form-control" id="coach_comment" name="coach_comment" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Send Feedback & Approve</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Bootstrap JS and dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@ import openai
 app = Flask(__name__)
 
 # Set your OpenAI API key
-openai.api_key = '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'
+openai.api_key = 'openai'
 
 @app.route('/')
 def home():
@@ -65,7 +65,7 @@ import google.generativeai as genai
 app = Flask(__name__)
 
 # Set your Gemini API key
-genai.configure(api_key='AIzaSyDacK8_vVoUIpMTlt0wN_s3XX-7D9GlgJU')
+genai.configure(api_key='genai_api_key')
 
 # Initialize the Gemini model
 model = genai.GenerativeModel('gemini-pro')

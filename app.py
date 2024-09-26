@@ -1,8 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-
 import google.generativeai as genai
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+import os
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Replace with a real secret key
@@ -13,8 +13,8 @@ cred = credentials.Certificate('hdproject-6e51c-firebase.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# Set your Gemini API key
-genai.configure(api_key='AIzaSyDacK8_vVoUIpMTlt0wN_s3XX-7D9GlgJU')
+# Set your Gemini API key 
+genai.configure(api_key=os.getenv('GENAI_API_KEY'))
 
 # Initialize the Gemini model
 model = genai.GenerativeModel('gemini-pro')

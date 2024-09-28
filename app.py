@@ -3,7 +3,10 @@ import google.generativeai as genai
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  #Auto  Replace with a real secret key
@@ -11,7 +14,7 @@ app.secret_key = 'your_secret_key'  #Auto  Replace with a real secret key
 
 
 # Initialize Firebase
-cred = credentials.Certificate('firebase.json')
+cred = credentials.Certificate('hdproject-6e51c-firebase-adminsdk-4e5te-d7102a3fe3.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 

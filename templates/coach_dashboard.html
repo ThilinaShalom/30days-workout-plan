@@ -35,7 +35,7 @@
       <div class="col-md-4">
         <div class="card mb-4">
           <div class="card-body">
-            <h5 class="card-title">Plan for {{ plan.user_email }}</h5>
+            <h5 class="card-title">Plan for {{ plan.user_name }}</h5>
             <p class="card-text">Fitness Goal: {{ plan.fitness_goal }}</p>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#planModal{{ loop.index }}">Review Plan</button>
           </div>
@@ -47,11 +47,20 @@
         <div class="modal-dialog modal-lg">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title" id="planModalLabel{{ loop.index }}">Plan Review for {{ plan.user_email }}</h5>
+              <h5 class="modal-title" id="planModalLabel{{ loop.index }}">Plan Review for {{ plan.user_name }}</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+              <h6>User Information:</h6>
+              <ul class="list-group mb-3">
+                {% for key, value in plan.user_info.items() %}
+                  <li class="list-group-item"><strong>{{ key|replace('_', ' ')|title }}:</strong> {{ value }}</li>
+                {% endfor %}
+              </ul>
+              
+              <h6>Workout Plan:</h6>
               <pre class="bg-light p-3 rounded"><code>{{ plan.plan }}</code></pre>
+              
               <form id="reviewForm{{ plan.id }}" onsubmit="return handleReview('{{ plan.id }}', event)">
                 <div class="mb-3">
                   <label for="coach_comment" class="form-label">Add your comments/suggestions:</label>
@@ -73,37 +82,37 @@
   
   <script>
   function handleReview(planId, event) {
-  event.preventDefault();
-  const form = document.getElementById(`reviewForm${planId}`);
-  const formData = new FormData(form);
-  const action = event.submitter.value;
-  formData.append('action', action);  // Add the action to the form data
+    event.preventDefault();
+    const form = document.getElementById(`reviewForm${planId}`);
+    const formData = new FormData(form);
+    const action = event.submitter.value;
+    formData.append('action', action);  // Add the action to the form data
 
-  fetch(`/review_plan/${planId}`, {
-    method: 'POST',
-    body: formData
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  })
-  .then(data => {
-    if (data.success) {
-      alert(`Plan ${data.status} successfully!`);
-      location.reload();
-    } else {
-      throw new Error(data.error || 'Unknown error occurred');
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    alert(`An error occurred while ${action}ing the plan: ${error.message}`);
-  });
+    fetch(`/review_plan/${planId}`, {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        alert(`Plan ${data.status} successfully!`);
+        location.reload();
+      } else {
+        throw new Error(data.error || 'Unknown error occurred');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert(`An error occurred while ${action}ing the plan: ${error.message}`);
+    });
 
-  return false;
-}
+    return false;
+  }
   </script>
 </body>
 </html>

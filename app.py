@@ -77,6 +77,7 @@ def customer_dashboard():
     user_data = db.collection('users').document(session['user_id']).get().to_dict()
     user_name = user_data.get('name', 'Customer')  # Use 'Customer' as fallback if name is not set
 
+
     # Fetch plans for the customer
     plans_ref = db.collection('plans').where('user_id', '==', session['user_id'])
     plans = []
@@ -132,7 +133,8 @@ def generate():
                 'user_id': session['user_id'],
                 'plan': workout_plan,
                 'fitness_goal': user_info['fitness_goal'],
-                'status': 'not_sent'
+                'status': 'not_sent',
+                'user_info':user_info
             }, timeout=30)  # Increase the timeout value (default is usually lower)
         except DeadlineExceeded:
             return "Firestore request timed out. Please try again later.", 504

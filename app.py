@@ -1,17 +1,17 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import google.generativeai as genai
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+from google.api_core.exceptions import DeadlineExceeded
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
+app.config['JSON_AS_ASCII'] = False
 app.secret_key = 'your_secret_key'  #Auto  Replace with a real secret key
-
-
 
 # Initialize Firebase
 cred = credentials.Certificate('hdproject-6e51c-firebase-adminsdk-4e5te-d7102a3fe3.json')
@@ -73,11 +73,19 @@ def customer_dashboard():
     if 'user_id' not in session or session['user_type'] != 'customer':
         return redirect(url_for('login'))
 
+    # Fetch user data
+    user_data = db.collection('users').document(session['user_id']).get().to_dict()
+    user_name = user_data.get('name', 'Customer')  # Use 'Customer' as fallback if name is not set
+
     # Fetch plans for the customer
     plans_ref = db.collection('plans').where('user_id', '==', session['user_id'])
-    plans = [plan.to_dict() for plan in plans_ref.stream()]
+    plans = []
+    for doc in plans_ref.stream():
+        plan = doc.to_dict()
+        plan['id'] = doc.id  # Add the document ID to the plan data
+        plans.append(plan)
 
-    return render_template('customer_dashboard.html', plans=plans)
+    return render_template('customer_dashboard.html', user_name=user_name, plans=plans)
 
 @app.route('/coach_dashboard')
 def coach_dashboard():
@@ -118,31 +126,101 @@ def generate():
         }
         workout_plan = generate_workout_plan(user_info)
         
-        # Save the plan to Firestore with a "requested" status
-        db.collection('plans').add({
-            'user_id': session['user_id'],
-            'plan': workout_plan,
-            'status': 'requested'
-        })
+        try:
+            # Save the generated plan to Firestore without sending it to the coach
+            db.collection('plans').add({
+                'user_id': session['user_id'],
+                'plan': workout_plan,
+                'fitness_goal': user_info['fitness_goal'],
+                'status': 'not_sent'
+            }, timeout=30)  # Increase the timeout value (default is usually lower)
+        except DeadlineExceeded:
+            return "Firestore request timed out. Please try again later.", 504
         
         return render_template('result.html', workout_plan=workout_plan)
     return render_template('generate_form.html')
 
+@app.route('/tell_coach/<plan_id>', methods=['POST'])
+def tell_coach(plan_id):
+    if 'user_id' not in session or session['user_type'] != 'customer':
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    # Update the plan status to "requested" and mark it as sent to the coach
+    try:
+        plan_ref = db.collection('plans').document(plan_id)
+        plan_doc = plan_ref.get()
+        
+        if not plan_doc.exists:
+            return jsonify({'error': 'Plan not found'}), 404
+        
+        plan_data = plan_doc.to_dict()
+        if plan_data['user_id'] != session['user_id']:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        plan_ref.update({
+            'status': 'requested'
+        })
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        print(f"Error in tell_coach: {str(e)}")  # Log the error
+        return jsonify({'error': str(e)}), 500
+    
 @app.route('/review_plan/<plan_id>', methods=['POST'])
 def review_plan(plan_id):
     if 'user_id' not in session or session['user_type'] != 'coach':
-        return redirect(url_for('login'))
+        return jsonify({'error': 'Unauthorized'}), 401
     
-    coach_comment = request.form['coach_comment']
+    coach_comment = request.form.get('coach_comment')
+    action = request.form.get('action')
 
-    # Update the plan with the coach's comment and mark it as 'approved'
+    print(f"Received data: plan_id={plan_id}, coach_comment={coach_comment}, action={action}")  # Debug log
+
+    if not coach_comment or not action:
+        print(f"Missing fields: coach_comment={coach_comment}, action={action}")  # Debug log
+        return jsonify({'error': 'Missing required fields'}), 400
+
     plan_ref = db.collection('plans').document(plan_id)
-    plan_ref.update({
-        'coach_comment': coach_comment,
-        'status': 'approved'
-    })
+    
+    try:
+        plan_doc = plan_ref.get()
+        if not plan_doc.exists:
+            return jsonify({'error': 'Plan not found'}), 404
 
-    return redirect(url_for('coach_dashboard'))
+        new_status = 'approved' if action == 'approve' else 'rejected'
+        
+        update_data = {
+            'coach_comment': coach_comment,
+            'status': new_status
+        }
+        print(f"Updating plan {plan_id} with data: {update_data}")  # Debug log
+        plan_ref.update(update_data)
+        
+        print(f"Plan {plan_id} {new_status} successfully")
+        return jsonify({'success': True, 'status': new_status}), 200
+    except Exception as e:
+        print(f"Error in review_plan: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/delete_plan/<plan_id>', methods=['POST'])
+def delete_plan(plan_id):
+    if 'user_id' not in session or session['user_type'] != 'customer':
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    plan_ref = db.collection('plans').document(plan_id)
+    
+    try:
+        plan_doc = plan_ref.get()
+        if not plan_doc.exists:
+            return jsonify({'error': 'Plan not found'}), 404
+        
+        plan_data = plan_doc.to_dict()
+        if plan_data['user_id'] != session['user_id']:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        plan_ref.delete()
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 def generate_workout_plan(user_info):
     user_info_str = '\n'.join([f"{key.replace('_', ' ').title()}: {value}" for key, value in user_info.items()])

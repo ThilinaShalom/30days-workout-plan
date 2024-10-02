@@ -133,10 +133,12 @@ def register():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
+        user_name = request.form['user_name']
         user_type = request.form['user_type']
         try:
             user = auth.create_user(email=email, password=password)
             db.collection('users').document(user.uid).set({
+                'user_name': user_name,
                 'email': email,
                 'user_type': user_type
             })
@@ -175,7 +177,7 @@ def customer_dashboard():
 
     # Fetch user data
     user_data = db.collection('users').document(session['user_id']).get().to_dict()
-    user_name = user_data.get('name', 'Customer')  # Use 'Customer' as fallback if name is not set
+    user_name = user_data.get('user_name', 'Customer')  # Use 'Customer' as fallback if name is not set
 
 
     # Fetch plans for the customer
@@ -192,6 +194,7 @@ def customer_dashboard():
 def coach_dashboard():
     if 'user_id' not in session or session['user_type'] != 'coach':
         return redirect(url_for('login'))
+
 
     # Fetch plans that have been sent for review
     plans_ref = db.collection('plans').where('status', '==', 'requested')
@@ -211,6 +214,7 @@ def generate():
     if request.method == 'POST':
         user_info = {
             'age': request.form.get('age'),
+            'sex': request.form.get('sex'),
             'weight_in_kg': request.form.get('weight_in_kg'),
             'height_in_cm': request.form.get('height_in_cm'),
             'fitness_goal': request.form.get('fitness_goal'),

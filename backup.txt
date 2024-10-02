@@ -123,3 +123,4 @@ Please provide a detailed plan that includes exercises, sets, reps, and rest per
 
 if __name__ == '__main__':
     app.run(debug=True)
+

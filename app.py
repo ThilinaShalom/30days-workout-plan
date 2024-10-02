@@ -5,6 +5,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from google.api_core.exceptions import DeadlineExceeded
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,6 +28,105 @@ model = genai.GenerativeModel('gemini-pro')
 @app.route('/')
 def home():
     return render_template('index.html')
+
+
+
+# Admin Registration
+@app.route('/admin/register', methods=['GET', 'POST'])
+def admin_register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        # Hash password before storing
+        hashed_password = generate_password_hash(password)
+
+        # Create the admin user in Firestore
+        db.collection('admins').document(username).set({
+            'username': username,
+            'password': hashed_password
+        })
+        return redirect(url_for('admin_login'))
+    
+    return render_template('admin/admin_registration.html')
+
+
+# Admin Login
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        # Retrieve the admin from Firestore
+        admin_doc = db.collection('admins').document(username).get()
+        if admin_doc.exists:
+            admin_data = admin_doc.to_dict()
+            if check_password_hash(admin_data['password'], password):
+                session['is_admin'] = True
+                session['admin_username'] = username
+                return redirect(url_for('admin_dashboard'))
+        
+        return 'Login failed. Check your username and password.', 401
+    
+    return render_template('admin/admin_login.html')
+
+# Admin Dashboard
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    if 'is_admin' not in session:
+        return redirect(url_for('admin_login'))
+
+    # Fetch all coaches from Firestore
+    user_data = db.collection('users').where('user_type', '==', 'coach')
+    coaches = [doc.to_dict() for doc in user_data.stream()]
+
+    return render_template('admin/admin_dashboard.html', coaches=coaches)
+
+
+# Coach Registration by Admin
+@app.route('/admin/register_coach', methods=['POST'])
+def register_coach():
+    if 'is_admin' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    user_type = request.form['user_type']
+    coach_name = request.form['coach_name']
+    email = request.form['email']
+    password = request.form['password']
+    specialization = request.form['specialization']
+    profile_pic_url = request.form['profile_pic_url']
+    services = request.form.getlist('services')  # Assuming services is a list
+
+    # Hash password before storing
+    hashed_password = generate_password_hash(password)
+
+    # Store the new coach in Firestore
+    user = auth.create_user(email=email, password=password)
+    db.collection('users').document(user.uid).set({
+        'user_type': user_type,
+        'username': coach_name,
+        'email': email,
+        'password': hashed_password,
+        'specialization': specialization,
+        'profile_pic_url': profile_pic_url,
+        'services': services
+    })
+
+    return jsonify({'success': True}), 200
+   
+
+@app.route('/admin/delete_coach/<coach_id>', methods=['POST'])
+def delete_coach(coach_id):
+    if 'is_admin' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        db.collection('coach').document(coach_id).delete()
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

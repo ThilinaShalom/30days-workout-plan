@@ -116,16 +116,86 @@ def register_coach():
     return jsonify({'success': True}), 200
    
 
-@app.route('/admin/delete_coach/<coach_id>', methods=['POST'])
-def delete_coach(coach_id):
+@app.route('/admin/delete_coach/<coach_email>', methods=['POST'])
+def delete_coach(coach_email):
     if 'is_admin' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
     try:
-        db.collection('coach').document(coach_id).delete()
+        # Find the coach document by email and delete it
+        coach_query = db.collection('users').where('email', '==', coach_email).limit(1)
+        coach_docs = coach_query.get()
+        
+        if not coach_docs:
+            return jsonify({'error': 'Coach not found'}), 404
+        
+        for doc in coach_docs:
+            doc.reference.delete()
+        
         return jsonify({'success': True}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/get_coach/<coach_email>')
+def get_coach(coach_email):
+    if 'is_admin' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    coach_query = db.collection('users').where('email', '==', coach_email).limit(1)
+    coach_docs = coach_query.get()
+    
+    if not coach_docs:
+        return jsonify({'error': 'Coach not found'}), 404
+    
+    coach_data = coach_docs[0].to_dict()
+    return jsonify(coach_data)
+
+
+@app.route('/admin/edit_coach/<coach_email>', methods=['POST'])
+def edit_coach(coach_email):
+    if 'is_admin' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    coach_query = db.collection('users').where('email', '==', coach_email).limit(1)
+    coach_docs = coach_query.get()
+    
+    if not coach_docs:
+        return jsonify({'error': 'Coach not found'}), 404
+    
+    coach_doc = coach_docs[0]
+    
+    updated_data = {
+        'username': request.form['coach_name'],
+        'specialization': request.form['specialization'],
+        'profile_pic_url': request.form['profile_pic_url'],
+        'services': request.form.getlist('services')
+    }
+    
+    new_email = request.form['email']
+    
+    # Update email in Firebase Auth if it has changed
+    if new_email != coach_email:
+        try:
+            user = auth.get_user_by_email(coach_email)
+            auth.update_user(user.uid, email=new_email)
+            updated_data['email'] = new_email
+        except Exception as e:
+            return jsonify({'error': f'Failed to update email: {str(e)}'}), 400
+    
+    coach_doc.reference.update(updated_data)
+    return jsonify({'success': True})
+
+@app.route('/admin/reset_coach_password/<coach_email>', methods=['POST'])
+def reset_coach_password(coach_email):
+    if 'is_admin' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        auth.generate_password_reset_link(coach_email)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': f'Failed to send password reset email: {str(e)}'}), 400
 
 
 @app.route('/register', methods=['GET', 'POST'])
